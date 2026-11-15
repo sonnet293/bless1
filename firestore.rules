@@ -1,0 +1,461 @@
+rules_version = '2';
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  배틀 시스템 + UTOPIA SNS 통합 규칙
+//
+//  [배틀]
+//  users/{uid}                    nickname / entry / role 은 관리자(서비스 계정)만 씀
+//  profiles/{uid}                 users 문서의 공개 복사본
+//  rooms/{roomId}/...             배틀룸 · 행동 요청 · 채팅
+//
+//  [SNS]
+//  users/{uid}                    + peace, lastRecv
+//  users/{uid}/private/inventory  보유 아이템 { anon, shard, flower, lastTxn } — 본인만 읽기
+//  posts/{pid}, comments          게시글 / 댓글 / 답글 / 좋아요
+//  messages/{mid}                 쪽지함 (anon | flower | peace)
+//  anonLogs/{mid}                 익명 쪽지의 실제 발신자 — 클라이언트는 아무도 못 읽음 (콘솔에서만 확인)
+// ─────────────────────────────────────────────────────────────────────────────
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===== 공통 =====
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function me() {
+      return request.auth.uid;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function invPath(uid) {
+      return /databases/$(database)/documents/users/$(uid)/private/inventory;
+    }
+
+    function msgPath(id) {
+      return /databases/$(database)/documents/messages/$(id);
+    }
+
+    function logPath(id) {
+      return /databases/$(database)/documents/anonLogs/$(id);
+    }
+
+    function changed() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function isGM() {
+      return signedIn()
+        && get(userPath(request.auth.uid)).data.get('role', '') == 'gm';
+    }
+
+    // ===== 로비에서 변경 가능한 필드 =====
+
+    function onlyLobbyKeys() {
+      return request.resource.data.diff(resource.data)
+        .affectedKeys().hasOnly([
+          'player1_uid', 'player1_name', 'player1_ready',
+          'player2_uid', 'player2_name', 'player2_ready',
+          'player3_uid', 'player3_name', 'player3_ready',
+          'player4_uid', 'player4_name', 'player4_ready',
+          'spectators', 'spectator_names',
+          'swap_request',
+          'intro_ready_p1', 'intro_ready_p2',
+          'intro_ready_p3', 'intro_ready_p4',
+          'intro_done'
+        ]);
+    }
+
+    // ===== 유저 데이터 =====
+    // nickname / id / entry / role 은 관리자(서비스 계정)만 쓴다. 서비스 계정은 규칙을 거치지 않음.
+    // SNS 타임라인 · 다른 사람 프로필 · 받는 사람 검색 때문에 로그인한 사용자는 모두 읽을 수 있다.
+
+    match /users/{uid} {
+
+      allow read: if signedIn();
+
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['cardSlots', 'profileImage']);
+
+      allow update: if
+        // 1) 본인: 프로필 화면에서 바꾸는 값
+        (isOwner(uid)
+          && changed().hasOnly(['cardSlots', 'profileImage']))
+        // 2) 본인: PEACE 감소 (상점 구매 · 송금). 정확한 금액은 inventory / messages 규칙이 검증
+        || (isOwner(uid)
+          && changed().hasOnly(['peace'])
+          && request.resource.data.peace is number
+          && request.resource.data.peace >= 0
+          && request.resource.data.peace < resource.data.peace)
+        // 3) 다른 사람: 공명 파편 송금으로 PEACE 증가
+        || (signedIn() && !isOwner(uid) && receivePeace(uid));
+
+      allow delete: if false;
+
+      function receivePeace(uid) {
+        let id = request.resource.data.lastRecv;
+        return changed().hasOnly(['peace', 'lastRecv'])
+          && id is string
+          && id != resource.data.get('lastRecv', '')
+          && !exists(msgPath(id))
+          && getAfter(msgPath(id)).data.type == 'peace'
+          && getAfter(msgPath(id)).data.from == me()
+          && getAfter(msgPath(id)).data.to == uid
+          && request.resource.data.peace == resource.data.get('peace', 0) + getAfter(msgPath(id)).data.amount;
+      }
+
+      // ===== 보유 아이템 (본인만) =====
+
+      match /private/{docId} {
+
+        allow read: if isOwner(uid);
+
+        allow create, update: if isOwner(uid)
+          && docId == 'inventory'
+          && validInv(uid);
+
+        allow delete: if false;
+
+        function oldInv() { return resource == null ? {} : resource.data; }
+        function newInv() { return request.resource.data; }
+        function invChanged() { return newInv().diff(oldInv()).affectedKeys(); }
+        function cnt(m, k) { return m.get(k, 0); }
+
+        function validInv(uid) {
+          return newInv().keys().hasOnly(['anon', 'shard', 'flower', 'lastTxn'])
+            && (buy(uid, 'anon', 5) || buy(uid, 'shard', 20) || buy(uid, 'flower', 30)
+                || useItem('anon', 'anon') || useItem('shard', 'peace') || useItem('flower', 'flower'));
+        }
+
+        // 구매: 아이템 +1 & 같은 배치에서 PEACE 가 정확히 가격만큼 감소
+        function buy(uid, k, price) {
+          return invChanged().hasOnly([k])
+            && cnt(newInv(), k) == cnt(oldInv(), k) + 1
+            && getAfter(userPath(uid)).data.peace == get(userPath(uid)).data.peace - price;
+        }
+
+        // 사용: 아이템 -1 & 같은 배치에서 해당 종류의 새 쪽지가 생성됨
+        function useItem(k, type) {
+          let id = newInv().get('lastTxn', '');
+          return invChanged().hasOnly([k, 'lastTxn'])
+            && cnt(oldInv(), k) >= 1
+            && cnt(newInv(), k) == cnt(oldInv(), k) - 1
+            && id is string && id != ''
+            && id != oldInv().get('lastTxn', '')
+            && !exists(msgPath(id))
+            && getAfter(msgPath(id)).data.type == type;
+        }
+      }
+    }
+
+    // ===== 공개 트레이너 프로필 =====
+    // users 문서의 복사본. nickname / entry 는 users 문서와 같을 때만 쓸 수 있어 조작 불가.
+
+    function matchesUserDoc(uid) {
+      return (
+        exists(userPath(uid))
+        && request.resource.data.nickname == get(userPath(uid)).data.get('nickname', null)
+        && request.resource.data.entry == get(userPath(uid)).data.get('entry', [])
+      ) || (
+        !exists(userPath(uid))
+        && request.resource.data.nickname == null
+        && request.resource.data.entry.size() == 0
+      );
+    }
+
+    match /profiles/{uid} {
+
+      allow read: if signedIn();
+
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'nickname',
+          'profileImage',
+          'cardSlots',
+          'entry',
+          'updatedAt'
+        ])
+        && matchesUserDoc(uid);
+
+      allow delete: if false;
+    }
+
+    // ===== 배틀룸 =====
+
+    match /rooms/{roomId} {
+
+      allow read: if signedIn();
+
+      allow create, delete: if isGM();
+
+      allow update: if isGM()
+        || (signedIn() && onlyLobbyKeys());
+
+      // ===== 플레이어 행동 요청 =====
+      // 본인 요청만 읽을 수 있으므로, 싱글배틀에서 고른 기술(choose)은 상대에게 보이지 않는다.
+
+      match /actions/{actionId} {
+
+        allow read: if isGM()
+          || (
+            signedIn()
+            && resource.data.uid == request.auth.uid
+          );
+
+        allow create: if signedIn()
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.status == 'pending'
+          && request.resource.data.type in [
+            'init',
+            'move',
+            'choose',
+            'switch',
+            'leave',
+            'select',
+            'unselect',
+            'timeout'
+          ]
+          && request.resource.data.keys().hasOnly([
+            'uid',
+            'type',
+            'payload',
+            'round_no',
+            'status',
+            'createdAt'
+          ]);
+
+        allow update, delete: if isGM();
+      }
+
+      // ===== 더블배틀 채팅 =====
+
+      match /chats/{channel}/messages/{msgId} {
+
+        function roomData() {
+          return get(
+            /databases/$(database)/documents/rooms/$(roomId)
+          ).data;
+        }
+
+        function isSpectator() {
+          return signedIn()
+            && request.auth.uid in
+              roomData().get('spectators', []);
+        }
+
+        function isTeamMember(team) {
+          return signedIn() && (
+            (
+              team == 't1'
+              && (
+                roomData().get('player1_uid', '') == request.auth.uid
+                || roomData().get('player2_uid', '') == request.auth.uid
+              )
+            )
+            ||
+            (
+              team == 't2'
+              && (
+                roomData().get('player3_uid', '') == request.auth.uid
+                || roomData().get('player4_uid', '') == request.auth.uid
+              )
+            )
+          );
+        }
+
+        function canWrite() {
+          return (
+            channel in ['t1', 't2']
+            && isTeamMember(channel)
+          )
+          || (
+            channel == 'spectator'
+            && isSpectator()
+          );
+        }
+
+        allow read: if isGM()
+          || (
+            signedIn()
+            && (
+              canWrite()
+              || (
+                isSpectator()
+                && channel in [
+                  't1',
+                  't2',
+                  'spectator'
+                ]
+              )
+            )
+          );
+
+        allow create: if signedIn()
+          && canWrite()
+          && request.resource.data.keys().hasOnly([
+            'uid',
+            'name',
+            'text',
+            'gameId',
+            'createdAt'
+          ])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.name is string
+          && request.resource.data.name.size() <= 20
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 200
+          && request.resource.data.createdAt == request.time;
+
+        allow update: if false;
+
+        allow delete: if isGM();
+      }
+    }
+
+    // ===== SNS: 게시글 =====
+
+    match /posts/{pid} {
+
+      allow read: if signedIn();
+      allow create: if signedIn() && validPost();
+      allow delete: if signedIn() && (resource.data.uid == me() || isGM());
+      allow update: if signedIn() && (likeToggle() || countChange());
+
+      function validPost() {
+        let d = request.resource.data;
+        let u = get(userPath(me())).data;
+        return d.keys().hasOnly(['uid', 'nickname', 'handle', 'text', 'createdAt', 'likes', 'commentCount'])
+          && d.uid == me()
+          && d.nickname == u.nickname
+          && d.handle == u.id
+          && d.text is string && d.text.size() > 0 && d.text.size() <= 500
+          && d.createdAt == request.time
+          && d.likes == []
+          && d.commentCount == 0;
+      }
+
+      // 좋아요: 자기 uid 하나만 추가/제거
+      function likeToggle() {
+        let a = request.resource.data.likes;
+        let b = resource.data.get('likes', []);
+        return changed().hasOnly(['likes'])
+          && a is list
+          && a.toSet().difference(b.toSet()).hasOnly([me()])
+          && b.toSet().difference(a.toSet()).hasOnly([me()])
+          && a.size() == a.toSet().size();
+      }
+
+      // 댓글 수: ±1
+      function countChange() {
+        let n = request.resource.data.commentCount;
+        let o = resource.data.get('commentCount', 0);
+        return changed().hasOnly(['commentCount']) && (n == o + 1 || n == o - 1) && n >= 0;
+      }
+
+      match /comments/{cid} {
+
+        allow read: if signedIn();
+        allow create: if signedIn() && validComment(pid);
+        allow delete: if signedIn() && (resource.data.uid == me() || isGM());
+
+        function validComment(pid) {
+          let d = request.resource.data;
+          let u = get(userPath(me())).data;
+          let post = /databases/$(database)/documents/posts/$(pid);
+          return d.keys().hasOnly(['uid', 'nickname', 'handle', 'text', 'createdAt', 'parentId', 'replyToUid', 'replyToHandle'])
+            && d.uid == me()
+            && d.nickname == u.nickname
+            && d.handle == u.id
+            && d.text is string && d.text.size() > 0 && d.text.size() <= 300
+            && d.createdAt == request.time
+            && (d.parentId == null || d.parentId is string)
+            && d.replyToHandle is string && d.replyToUid is string
+            && getAfter(post).data.commentCount == get(post).data.get('commentCount', 0) + 1;
+        }
+      }
+    }
+
+    // ===== SNS: 쪽지 =====
+
+    match /messages/{mid} {
+
+      // 익명 쪽지 문서에는 from 필드가 없음 → 받는 사람은 보낸 사람을 알 수 없음
+      allow read: if signedIn()
+        && (resource.data.to == me() || resource.data.get('from', '') == me());
+
+      allow update: if signedIn()
+        && resource.data.to == me()
+        && changed().hasOnly(['read'])
+        && request.resource.data.read == true;
+
+      allow delete: if false;
+
+      allow create: if signedIn() && baseMsg(mid)
+        && (anonMsg(mid) || flowerMsg() || peaceMsg(mid));
+
+      function d() { return request.resource.data; }
+
+      // 같은 배치에서 내 inventory 의 lastTxn 이 이 쪽지로 바뀌어야 함 (= 아이템 1개 소모)
+      function baseMsg(mid) {
+        return d().to is string
+          && d().to != me()
+          && exists(userPath(d().to))
+          && d().read == false
+          && d().createdAt == request.time
+          && getAfter(invPath(me())).data.get('lastTxn', '') == mid
+          && get(invPath(me())).data.get('lastTxn', '') != mid;
+      }
+
+      function anonMsg(mid) {
+        return d().type == 'anon'
+          && d().keys().hasOnly(['type', 'to', 'text', 'createdAt', 'read'])
+          && d().text is string && d().text.size() > 0 && d().text.size() <= 500
+          && getAfter(logPath(mid)).data.from == me()
+          && getAfter(logPath(mid)).data.to == d().to;
+      }
+
+      function flowerMsg() {
+        return d().type == 'flower'
+          && d().keys().hasOnly(['type', 'from', 'to', 'text', 'createdAt', 'read'])
+          && d().from == me()
+          && (!('text' in d()) || (d().text is string && d().text.size() <= 100));
+      }
+
+      // 송금: 수수료 = ceil(amount / 10), 보낸 사람 PEACE 는 amount + fee 만큼 감소
+      function peaceMsg(mid) {
+        let a = d().get('amount', 0);
+        let f = d().get('fee', 0);
+        return d().type == 'peace'
+          && d().keys().hasOnly(['type', 'from', 'to', 'amount', 'fee', 'createdAt', 'read'])
+          && d().from == me()
+          && a is int && f is int && a >= 1
+          && f * 10 >= a && (f - 1) * 10 < a
+          && getAfter(userPath(me())).data.peace == get(userPath(me())).data.peace - a - f
+          && getAfter(userPath(d().to)).data.get('lastRecv', '') == mid;
+      }
+    }
+
+    // ===== SNS: 익명 쪽지 발신 기록 (클라이언트 읽기 불가, GM 포함) =====
+
+    match /anonLogs/{mid} {
+
+      allow read, update, delete: if false;
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['from', 'to', 'text', 'createdAt'])
+        && request.resource.data.from == me()
+        && request.resource.data.createdAt == request.time
+        && getAfter(msgPath(mid)).data.type == 'anon'
+        && getAfter(msgPath(mid)).data.to == request.resource.data.to;
+    }
+  }
+}
