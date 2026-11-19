@@ -10,6 +10,10 @@ import {
   where,
   documentId,
   getDocs,
+  getDoc,
+  setDoc,
+  doc,
+  serverTimestamp,
   orderBy,
   startAt,
   endAt,
@@ -167,28 +171,73 @@ export async function logout() {
 }
 
 /* ───────────────── 사용자 캐시 (Firestore 읽기 절약) ─────────────────
- * 사용자 문서는 localStorage 에 10분간 캐시하고, 여러 명은 'in' 쿼리(30개씩)로 한 번에 읽는다. */
-const UC_KEY = "utopia:users:v1";
+ * 내 정보는 users/{내 uid} 에서, 다른 사람은 공개 복사본인 profiles 에서 읽는다.
+ * (users 는 본인과 GM 만 읽을 수 있음)
+ * localStorage 에 10분간 캐시하고, 여러 명은 'in' 쿼리(30개씩)로 한 번에 읽는다. */
+const UC_KEY = "utopia:users:v2";
 const UC_TTL = 10 * 60 * 1000;
 let uc = {};
 try { uc = JSON.parse(localStorage.getItem(UC_KEY)) || {}; } catch { uc = {}; }
 const saveUC = () => { try { localStorage.setItem(UC_KEY, JSON.stringify(uc)); } catch {} };
 
+/** 공개용 엔트리: 포켓몬 이름(name, cardName)만. 능력치 · 기술은 profiles 에 올리지 않는다.
+ *  규칙(firestore.rules pubEntryOk)이 users.entry 와 같은지 앞 6마리까지 검사한다. */
+export function publicEntry(entry) {
+  return (Array.isArray(entry) ? entry : []).slice(0, 6).map((p) => {
+    const m = { name: p?.name ?? null };
+    if (p?.cardName != null) m.cardName = p.cardName;
+    return m;
+  });
+}
+
+/** 내 users 문서를 profiles/{uid} 에 복사. 내용이 바뀌었거나 하루가 지났을 때만 쓴다. */
+const SYNC_KEY = "utopia:profileSync:v2";
+const SYNC_TTL = 24 * 60 * 60 * 1000;
+async function syncProfile(uid, data) {
+  const pub = {
+    nickname: data.nickname ?? null,
+    id: data.id ?? null,
+    profileImage: data.profileImage ?? "",
+    entry: publicEntry(data.entry),
+  };
+  const sig = uid + ":" + JSON.stringify(pub);
+  let last = null;
+  try { last = JSON.parse(localStorage.getItem(SYNC_KEY)); } catch {}
+  if (last?.sig === sig && Date.now() - last.t < SYNC_TTL) return;
+  try {
+    await setDoc(doc(db, "profiles", uid), { ...pub, updatedAt: serverTimestamp() }, { merge: true });
+    try { localStorage.setItem(SYNC_KEY, JSON.stringify({ sig, t: Date.now() })); } catch {}
+  } catch (e) { console.warn("profile sync", e); }
+}
+
 export async function getUsers(uids, { fresh = false } = {}) {
   const ids = [...new Set(uids.filter(Boolean))];
   const now = Date.now();
-  const need = ids.filter((id) => fresh || !uc[id] || now - uc[id].t > UC_TTL);
+  // 못 찾은 사용자(null)는 30초만 캐시 — 그 사이 로그인해서 profiles 가 생길 수 있음
+  const need = ids.filter((id) => fresh || !uc[id] || now - uc[id].t > (uc[id].u ? UC_TTL : 30 * 1000));
+  const myUid = auth.currentUser?.uid;
+  const others = need.filter((id) => id !== myUid);
 
-  const chunks = [];
-  for (let i = 0; i < need.length; i += 30) chunks.push(need.slice(i, i + 30));
-  await Promise.all(
-    chunks.map(async (chunk) => {
-      const snap = await getDocs(query(collection(db, "users"), where(documentId(), "in", chunk)));
-      const found = new Set();
-      snap.forEach((d) => { found.add(d.id); uc[d.id] = { t: now, u: { uid: d.id, ...d.data() } }; });
-      chunk.forEach((id) => { if (!found.has(id)) uc[id] = { t: now, u: null }; });
-    })
-  );
+  const jobs = [];
+  if (myUid && need.includes(myUid)) {
+    jobs.push(
+      getDoc(doc(db, "users", myUid)).then((s) => {
+        uc[myUid] = { t: now, u: s.exists() ? { uid: myUid, ...s.data() } : null };
+        if (s.exists()) syncProfile(myUid, s.data());
+      })
+    );
+  }
+  for (let i = 0; i < others.length; i += 30) {
+    const chunk = others.slice(i, i + 30);
+    jobs.push(
+      getDocs(query(collection(db, "profiles"), where(documentId(), "in", chunk))).then((snap) => {
+        const found = new Set();
+        snap.forEach((d) => { found.add(d.id); uc[d.id] = { t: now, u: { uid: d.id, ...d.data() } }; });
+        chunk.forEach((id) => { if (!found.has(id)) uc[id] = { t: now, u: null }; });
+      })
+    );
+  }
+  await Promise.all(jobs);
   if (need.length) saveUC();
 
   const out = {};
@@ -212,7 +261,7 @@ export async function searchUsers(term, excludeUid) {
   const t = term.trim().replace(/^@/, "");
   if (!t) return [];
   if (!searchMemo.has(t)) {
-    const col = collection(db, "users");
+    const col = collection(db, "profiles");
     const run = (field) => getDocs(query(col, orderBy(field), startAt(t), endAt(t + ""), limit(6)));
     const [a, b] = await Promise.all([run("nickname"), run("id")]);
     const map = new Map();
@@ -220,7 +269,7 @@ export async function searchUsers(term, excludeUid) {
     [...a.docs, ...b.docs].forEach((d) => {
       const u = { uid: d.id, ...d.data() };
       map.set(d.id, u);
-      uc[d.id] = { t: now, u };
+      if (d.id !== auth.currentUser?.uid) uc[d.id] = { t: now, u }; // 내 캐시는 users 문서(PEACE 포함) 유지
     });
     saveUC();
     searchMemo.set(t, [...map.values()]);

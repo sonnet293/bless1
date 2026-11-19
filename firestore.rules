@@ -4,9 +4,9 @@ rules_version = '2';
 //  배틀 시스템 + UTOPIA SNS 통합 규칙
 //
 //  [배틀]
-//  users/{uid}                    nickname / entry / role 은 관리자(서비스 계정)만 씀
-//  profiles/{uid}                 users 문서의 공개 복사본
-//  rooms/{roomId}/...             배틀룸 · 행동 요청 · 채팅
+//  users/{uid}                    nickname / id / entry / role 은 관리자(서비스 계정)만 씀 — 본인과 GM 만 읽기
+//  profiles/{uid}                 users 문서의 공개 복사본 (다른 사람 정보는 여기서 읽음)
+//  rooms/{roomId}/...             배틀룸 · 행동 요청
 //
 //  [SNS]
 //  users/{uid}                    + peace, lastRecv
@@ -64,23 +64,20 @@ service cloud.firestore {
         .affectedKeys().hasOnly([
           'player1_uid', 'player1_name', 'player1_ready',
           'player2_uid', 'player2_name', 'player2_ready',
-          'player3_uid', 'player3_name', 'player3_ready',
-          'player4_uid', 'player4_name', 'player4_ready',
           'spectators', 'spectator_names',
           'swap_request',
           'intro_ready_p1', 'intro_ready_p2',
-          'intro_ready_p3', 'intro_ready_p4',
           'intro_done'
         ]);
     }
 
     // ===== 유저 데이터 =====
     // nickname / id / entry / role 은 관리자(서비스 계정)만 쓴다. 서비스 계정은 규칙을 거치지 않음.
-    // SNS 타임라인 · 다른 사람 프로필 · 받는 사람 검색 때문에 로그인한 사용자는 모두 읽을 수 있다.
+    // 본인과 GM 만 읽을 수 있다. 다른 사람의 닉네임 · 아이디 · 사진 · 엔트리는 profiles 에서 읽는다.
 
     match /users/{uid} {
 
-      allow read: if signedIn();
+      allow read: if isOwner(uid) || isGM();
 
       allow create: if isOwner(uid)
         && request.resource.data.keys().hasOnly(['cardSlots', 'profileImage']);
@@ -157,13 +154,42 @@ service cloud.firestore {
     }
 
     // ===== 공개 트레이너 프로필 =====
-    // users 문서의 복사본. nickname / entry 는 users 문서와 같을 때만 쓸 수 있어 조작 불가.
+    // users 문서의 복사본. nickname / id 는 users 문서와 같을 때만, entry 는 포켓몬 이름만 쓸 수 있다.
+    // 능력치(atk · def · spd · hp)와 기술은 users 에만 있어 본인과 GM 만 볼 수 있다.
+    // SNS 는 로그인할 때 본인 문서를 자동으로 동기화한다 (js/common.js syncProfile).
+
+    // 공개 엔트리 한 마리: name / cardName 만 (atk · def · spd · hp · 기술 등은 올릴 수 없음)
+    function pubMon(p, src) {
+      return p is map
+        && p.keys().hasOnly(['name', 'cardName'])
+        && p.get('name', null) == src.get('name', null)
+        && p.get('cardName', null) == src.get('cardName', null);
+    }
+
+    // 공개 엔트리 전체: users.entry 의 앞 6마리와 순서 · 이름이 같아야 함 (규칙엔 반복문이 없어 6칸을 직접 검사)
+    function pubEntryOk(e, src) {
+      return e is list
+        && (
+          (src.size() <= 6 && e.size() == src.size())
+          || (src.size() > 6 && e.size() == 6)
+        )
+        && (e.size() < 1 || pubMon(e[0], src[0]))
+        && (e.size() < 2 || pubMon(e[1], src[1]))
+        && (e.size() < 3 || pubMon(e[2], src[2]))
+        && (e.size() < 4 || pubMon(e[3], src[3]))
+        && (e.size() < 5 || pubMon(e[4], src[4]))
+        && (e.size() < 6 || pubMon(e[5], src[5]));
+    }
 
     function matchesUserDoc(uid) {
       return (
         exists(userPath(uid))
         && request.resource.data.nickname == get(userPath(uid)).data.get('nickname', null)
-        && request.resource.data.entry == get(userPath(uid)).data.get('entry', [])
+        && pubEntryOk(request.resource.data.entry, get(userPath(uid)).data.get('entry', []))
+        && (
+          !('id' in request.resource.data)
+          || request.resource.data.id == get(userPath(uid)).data.get('id', null)
+        )
       ) || (
         !exists(userPath(uid))
         && request.resource.data.nickname == null
@@ -178,6 +204,7 @@ service cloud.firestore {
       allow create, update: if isOwner(uid)
         && request.resource.data.keys().hasOnly([
           'nickname',
+          'id',
           'profileImage',
           'cardSlots',
           'entry',
@@ -233,91 +260,6 @@ service cloud.firestore {
           ]);
 
         allow update, delete: if isGM();
-      }
-
-      // ===== 더블배틀 채팅 =====
-
-      match /chats/{channel}/messages/{msgId} {
-
-        function roomData() {
-          return get(
-            /databases/$(database)/documents/rooms/$(roomId)
-          ).data;
-        }
-
-        function isSpectator() {
-          return signedIn()
-            && request.auth.uid in
-              roomData().get('spectators', []);
-        }
-
-        function isTeamMember(team) {
-          return signedIn() && (
-            (
-              team == 't1'
-              && (
-                roomData().get('player1_uid', '') == request.auth.uid
-                || roomData().get('player2_uid', '') == request.auth.uid
-              )
-            )
-            ||
-            (
-              team == 't2'
-              && (
-                roomData().get('player3_uid', '') == request.auth.uid
-                || roomData().get('player4_uid', '') == request.auth.uid
-              )
-            )
-          );
-        }
-
-        function canWrite() {
-          return (
-            channel in ['t1', 't2']
-            && isTeamMember(channel)
-          )
-          || (
-            channel == 'spectator'
-            && isSpectator()
-          );
-        }
-
-        allow read: if isGM()
-          || (
-            signedIn()
-            && (
-              canWrite()
-              || (
-                isSpectator()
-                && channel in [
-                  't1',
-                  't2',
-                  'spectator'
-                ]
-              )
-            )
-          );
-
-        allow create: if signedIn()
-          && canWrite()
-          && request.resource.data.keys().hasOnly([
-            'uid',
-            'name',
-            'text',
-            'gameId',
-            'createdAt'
-          ])
-          && request.resource.data.uid == request.auth.uid
-          && request.resource.data.name is string
-          && request.resource.data.name.size() <= 20
-          && request.resource.data.text is string
-          && request.resource.data.text.size() > 0
-          && request.resource.data.text.size() <= 200
-          && request.resource.data.createdAt == request.time;
-
-        allow update: if false;
-
-        allow delete: if isGM();
       }
     }
 

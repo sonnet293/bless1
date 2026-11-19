@@ -45,7 +45,8 @@ Firebase(Auth · Firestore) + Supabase(Storage)로 만든 정적 웹 SNS입니�
 ## 데이터 구조
 
 ```
-users/{uid}                      nickname, id, profileImage, peace, entry, lastRecv
+users/{uid}                      nickname, id, profileImage, peace, entry, lastRecv  ← 본인·GM만 읽기
+profiles/{uid}                   nickname, id, profileImage, entry[{name, cardName?}], updatedAt  ← 공개 복사본 (로그인 시 자동 동기화, 능력치 없음)
 users/{uid}/private/inventory    anon, shard, flower, lastTxn       ← 본인만 읽기
 posts/{pid}                      uid, nickname, handle, text, createdAt, likes[uid], commentCount
 posts/{pid}/comments/{cid}       uid, nickname, handle, text, createdAt, parentId, replyToUid, replyToHandle
@@ -66,7 +67,7 @@ anonLogs/{mid}                   from, to, text, createdAt          ← 클라�
 - 자기 PEACE를 늘리는 쓰기는 모두 거부됩니다.
 
 ## 비용 절감 포인트
-- **사용자 문서 캐시**: 프로필/닉네임을 localStorage에 10분 캐시하고, 여러 명은 `in` 쿼리(30명씩) 한 번으로 읽습니다.
+- **사용자 문서 캐시**: 내 정보는 `users`, 다른 사람은 `profiles`에서 읽어 프로필/닉네임을 localStorage에 10분 캐시하고, 여러 명은 `in` 쿼리(30명씩) 한 번으로 읽습니다.
 - **좋아요 = 배열 필드**: 하위 컬렉션 없이 게시글 문서 1개에 저장해서, 타임라인에서 "내가 눌렀는지" 확인할 때 추가 읽기가 없습니다.
 - **타임라인은 15개씩 페이지 단위** `getDocs`(실시간 리스너 아님), 댓글은 글을 열 때만 읽고 2분 캐시합니다.
 - **실시간 리스너는 안 읽은 쪽지 배지 하나뿐**이고, 안 읽은 쪽지만 구독합니다.

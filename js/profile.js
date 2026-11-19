@@ -1,12 +1,12 @@
 // js/profile.js — 프로필 사진(Supabase) / 닉네임·아이디 / 엔트리 스프라이트
 import { db } from "./firebase.js";
-import { doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { doc, writeBatch, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { supabase, AVATAR_BUCKET } from "./supabase.js";
 import { avatarPath, resizeImage } from "./avatar.js";
 import { spriteFor } from "./pokemon.js";
 import {
   $, esc, icon, hydrateIcons, requireAuth, ready, getUser, renderShell, avatarSrc,
-  patchCachedUser, toast, errMsg, fmt, logout,
+  patchCachedUser, toast, errMsg, fmt, logout, publicEntry,
 } from "./common.js";
 
 const TYPE_COLORS = {
@@ -23,17 +23,23 @@ async function init() {
   const targetUid = new URLSearchParams(location.search).get("uid") || authUser.uid;
   const isMe = targetUid === authUser.uid;
 
-  let user = null, me = null;
+  let user = null, me = null, loadErr = null;
   try {
-    user = await getUser(targetUid, { fresh: isMe }); // 내 프로필은 최신 값(PEACE 등)으로
+    // 내 프로필은 users(PEACE 등 최신 값), 다른 사람은 profiles 를 새로 읽음
+    user = await getUser(targetUid, { fresh: true });
     me = isMe ? user : await getUser(authUser.uid);
-  } catch (e) { console.error(e); }
+  } catch (e) { console.error(e); loadErr = e; }
 
   renderShell(isMe ? "profile" : null, me);
   ready();
 
   if (!user) {
-    $("#profile").innerHTML = `<div class="empty">${icon("user")}<b>사용자를 찾을 수 없어요</b></div>`;
+    const [title, sub] = loadErr
+      ? ["프로필을 불러오지 못했어요", errMsg(loadErr)]
+      : isMe
+        ? ["내 사용자 정보가 없어요", `Firestore 의 users/${targetUid} 문서를 확인해 주세요.`]
+        : ["아직 공개 프로필이 없어요", "이 사용자가 한 번 로그인하면 프로필이 만들어져요."];
+    $("#profile").innerHTML = `<div class="empty">${icon("user")}<b>${esc(title)}</b><p>${esc(sub)}</p></div>`;
     $(".entry-section").hidden = true;
     return;
   }
@@ -51,14 +57,14 @@ async function init() {
     $("#avatarEdit").hidden = false;
     $("#mLogout").hidden = false;
     $("#mLogout").addEventListener("click", logout);
-    $("#avatarInput").addEventListener("change", (e) => onAvatarPicked(e, authUser.uid));
+    $("#avatarInput").addEventListener("change", (e) => onAvatarPicked(e, authUser.uid, user));
   }
 
   renderEntry(user.entry || []);
 }
 
 /* ───────────────────────── 프로필 사진 변경 ───────────────────────── */
-async function onAvatarPicked(e, uid) {
+async function onAvatarPicked(e, uid, user) {
   const file = e.target.files?.[0];
   e.target.value = "";
   if (!file) return;
@@ -77,7 +83,16 @@ async function onAvatarPicked(e, uid) {
 
     const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
     const url = `${data.publicUrl}?v=${Date.now()}`; // 캐시 무효화용 버전
-    await updateDoc(doc(db, "users", uid), { profileImage: url });
+    const b = writeBatch(db);
+    b.update(doc(db, "users", uid), { profileImage: url });
+    b.set(doc(db, "profiles", uid), {
+      nickname: user.nickname ?? null,
+      id: user.id ?? null,
+      entry: publicEntry(user.entry),
+      profileImage: url,
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+    await b.commit();
 
     patchCachedUser(uid, { profileImage: url });
     $("#pAvatar").src = url;
@@ -132,12 +147,13 @@ function monHTML(p, i) {
       ${form ? `<p class="mon-form">${esc(form)}</p>` : ""}
       <div class="types">${types.map((t) => `<span class="type" style="--tc:${TYPE_COLORS[t] || "#888"}">${esc(t)}</span>`).join("")}</div>
     </div>
+    ${p.hp != null || p.atk != null ? `
     <dl class="stats">
       <div><dt>HP</dt><dd>${fmt(p.hp)}</dd></div>
       <div><dt>공격</dt><dd>${fmt(p.atk)}</dd></div>
       <div><dt>방어</dt><dd>${fmt(p.def)}</dd></div>
       <div><dt>스피드</dt><dd>${fmt(p.spd)}</dd></div>
-    </dl>
+    </dl>` : ""}
     ${moves.length ? `
     <details class="moves">
       <summary>기술 ${moves.length}개 ${icon("chevron")}</summary>
