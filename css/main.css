@@ -75,8 +75,8 @@
   position: relative;
   width: 60px; height: 60px; border-radius: 50%; border: 0;
   display: grid; place-items: center;
-  background: var(--grad); color: #fff;
-  box-shadow: 0 14px 30px -10px var(--accent), 0 2px 6px rgba(0, 0, 0, .12);
+  background: var(--grad); color: var(--accent-ink);
+  box-shadow: 0 10px 24px -10px rgba(0, 0, 0, .5), 0 2px 6px rgba(0, 0, 0, .3);
   transition: transform .15s, box-shadow .15s;
 }
 .fab .ic { width: 26px; height: 26px; }
@@ -89,6 +89,7 @@
   box-shadow: var(--shadow);
 }
 .fab-sub .ic { width: 22px; height: 22px; }
+.fab-sub:hover { background: var(--surface-3); border-color: rgba(255, 255, 255, .18); }
 
 .badge {
   position: absolute; top: -2px; right: -2px;
@@ -183,14 +184,9 @@
   background: var(--surface-2); color: var(--accent);
 }
 .msg-ic .ic { width: 22px; height: 22px; }
-.msg.anon .msg-ic { background: #DCEAF7; color: #003F73; }
-.msg.flower .msg-ic { background: #ffe6f1; color: #e0477f; }
-.msg.peace .msg-ic { background: #fff3d6; color: #c98a00; }
-@media (prefers-color-scheme: dark) {
-  .msg.anon .msg-ic { background: #12263D; color: #9FC4E6; }
-  .msg.flower .msg-ic { background: #3d1a2a; color: #ff8cb6; }
-  .msg.peace .msg-ic { background: #3a2c0c; color: #f3c14c; }
-}
+.msg.anon .msg-ic { background: #EDEDEA; color: #444442; }
+.msg.flower .msg-ic { background: #FDE8F0; color: #D23F75; }
+.msg.peace .msg-ic { background: #FBF0D9; color: #B07A00; }
 .msg-main { flex: 1; min-width: 0; padding-right: 14px; }
 .msg-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
 .msg-title { font-size: 14.5px; color: var(--text-2); }

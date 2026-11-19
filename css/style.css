@@ -3,45 +3,48 @@
    ========================================================================== */
 
 
+/* 바깥 영역 (사이드바 · 하단 탭 · 로그인): 블랙 다크 */
 :root {
   /* Background & Surface */
-  --bg: #F4F9FE;
-  --surface: #FFFFFF;
-  --surface-2: #EAF3FC;
-  --surface-3: #D6E8F8;
-  --border: #C9DCEE;
+  --bg: #0E0E0E;
+  --surface: #181818;
+  --surface-2: #222222;
+  --surface-3: #2E2E2E;
+  --border: #2A2A2A;
+  --hover: rgba(255, 255, 255, .14);
 
   /* Text */
-  --text: #0B1F33;
-  --text-2: #24405C;
-  --muted: #5A7189;
+  --text: #F7F7F5;
+  --text-2: #DADAD6;
+  --muted: #9C9C98;
 
-  /* Accent - Brand Blue (#006CC4 기준) */
-  --accent: #006CC4;
-  --accent-2: #0059A2;
+  /* Accent - Red */
+  --accent: #FF5A4E;
+  --accent-2: #E8483B;
   --accent-ink: #FFFFFF;
-  --accent-soft: #E3F0FB;
+  --accent-soft: #33201E;
+  --accent-glow: rgba(255, 90, 78, .22);
 
   /* Status Colors */
-  --like: #D94F63;
-  --like-soft: #FFF0EC;
-  --ok: #327A4D;
-  --danger: #C53F48;
-  --danger-soft: #FDECEC;
-  --gold: #A66B16;
+  --like: #FF8FB8;
+  --like-soft: #33202A;
+  --ok: #9EDDB0;
+  --danger: #FF9C9F;
+  --danger-soft: #331E1E;
+  --gold: #F3CB85;
 
   /* Gradient */
   --grad: linear-gradient(
     135deg,
-    #2F8FDB 0%,
-    #006CC4 50%,
-    #0059A2 100%
+    #F2574A 0%,
+    #D9362B 50%,
+    #B8271E 100%
   );
 
   /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 40, 80, .08);
-  --shadow: 0 10px 30px -10px rgba(0, 40, 80, .18);
-  --shadow-lg: 0 24px 60px -18px rgba(0, 40, 80, .28);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
+  --shadow: 0 10px 30px -10px rgba(0, 0, 0, .7);
+  --shadow-lg: 0 24px 60px -18px rgba(0, 0, 0, .8);
 
   /* Border Radius */
   --radius: 18px;
@@ -53,53 +56,40 @@
   --nav-h: 62px;
   --safe-b: env(safe-area-inset-bottom, 0px);
 
-  color-scheme: light;
+  color-scheme: dark;
 }
 
-/* Dark Mode */
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* Background & Surface */
-    --bg: #0A1420;
-    --surface: #101D2B;
-    --surface-2: #172838;
-    --surface-3: #20354A;
-    --border: #2C4560;
+/* 타임라인 컬럼 · 다이얼로그: 화이트 */
+.column, dialog {
+  --surface: #FFFFFF;
+  --surface-2: #F4F4F2;
+  --surface-3: #E8E8E5;
+  --border: #E3E3E0;
+  --hover: var(--surface-2);
 
-    /* Text */
-    --text: #F2F8FF;
-    --text-2: #C9DCEE;
-    --muted: #8FA7BF;
+  --text: #1A1A1A;
+  --text-2: #444442;
+  --muted: #74746F;
 
-    /* Accent - Brand Blue (어두운 배경용으로 밝게) */
-    --accent: #4DA3E8;
-    --accent-2: #2F8FDB;
-    --accent-ink: #FFFFFF;
-    --accent-soft: #0F2A45;
+  --accent: #D2302A;
+  --accent-2: #B0241E;
+  --accent-soft: #FCEBE9;
+  --accent-glow: rgba(210, 48, 42, .18);
 
-    /* Status Colors */
-    --like: #FF8290;
-    --like-soft: #402824;
-    --ok: #8CD7A2;
-    --danger: #FF858B;
-    --danger-soft: #402525;
-    --gold: #F0C477;
+  --like: #D6407A;
+  --like-soft: #FCEAF1;
+  --ok: #327A4D;
+  --danger: #C53F48;
+  --danger-soft: #FDECEC;
+  --gold: #A66B16;
 
-    /* Gradient */
-    --grad: linear-gradient(
-      135deg,
-      #4DA3E8 0%,
-      #1F7FD0 50%,
-      #006CC4 100%
-    );
+  --grad: linear-gradient(135deg, #E84C40 0%, #D2302A 50%, #B0241E 100%);
 
-    /* Shadows */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .25);
-    --shadow: 0 10px 30px -10px rgba(0, 0, 0, .55);
-    --shadow-lg: 0 24px 60px -18px rgba(0, 0, 0, .7);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .08);
+  --shadow: 0 10px 30px -10px rgba(0, 0, 0, .18);
+  --shadow-lg: 0 24px 60px -18px rgba(0, 0, 0, .45);
 
-    color-scheme: dark;
-  }
+  color-scheme: light;
 }
 
 
@@ -111,7 +101,8 @@ html:has(dialog[open]) { overflow: hidden; }
 body {
   margin: 0;
   min-height: 100dvh;
-  background: var(--bg);
+  background: url("../img/Background.jpg") center / cover no-repeat;
+  background-attachment: fixed;
   color: var(--text);
   font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
   font-size: 15px;
@@ -176,6 +167,7 @@ img { display: block; max-width: 100%; }
 .brand .brand-logo {
   display: block;
   width: 150px; max-width: 100%; height: auto;
+  filter: drop-shadow(0 0 4px var(--accent-glow));
 }
 
 .side-nav { display: flex; flex-direction: column; gap: 4px; }
@@ -192,7 +184,7 @@ img { display: block; max-width: 100%; }
   text-align: left;
 }
 .nav-item .ic { width: 26px; height: 26px; }
-.nav-item:hover { background: var(--surface-2); color: var(--text); }
+.nav-item:hover { background: var(--hover); color: var(--text); }
 .nav-item.active { color: var(--text); font-weight: 800; }
 .nav-item.active .ic { color: var(--accent); stroke-width: 2.3; }
 
@@ -203,7 +195,7 @@ img { display: block; max-width: 100%; }
   padding: 10px 12px; border-radius: 999px;
   transition: background .15s;
 }
-.me-card:hover { background: var(--surface-2); }
+.me-card:hover { background: var(--hover); }
 .me-meta { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
 .me-meta b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .me-meta small { color: var(--muted); font-size: 13px; }
@@ -288,10 +280,10 @@ img { display: block; max-width: 100%; }
 .btn .ic { width: 18px; height: 18px; }
 .btn:active:not(:disabled) { transform: scale(.97); }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
-.btn.primary { background: var(--grad); color: #fff; box-shadow: 0 6px 18px -8px var(--accent); }
-.btn.primary:hover:not(:disabled) { box-shadow: 0 10px 24px -8px var(--accent); }
+.btn.primary { background: var(--grad); color: var(--accent-ink); box-shadow: 0 6px 18px -8px rgba(0, 0, 0, .3); }
+.btn.primary:hover:not(:disabled) { box-shadow: 0 10px 24px -8px rgba(0, 0, 0, .4); }
 .btn.ghost { background: transparent; border-color: var(--border); }
-.btn.ghost:hover:not(:disabled) { background: var(--surface-2); }
+.btn.ghost:hover:not(:disabled) { background: var(--hover); }
 .btn.danger { background: var(--danger); color: #fff; }
 .btn.sm { height: 34px; padding: 0 14px; font-size: 14px; }
 .btn.lg { height: 50px; font-size: 16px; }
@@ -301,17 +293,17 @@ img { display: block; max-width: 100%; }
   display: inline-grid; place-items: center;
   width: 40px; height: 40px; padding: 0;
   border: 0; border-radius: 50%;
-  background: transparent; color: var(--text-2);
+  background: transparent; color: var(--text);
   transition: background .15s, color .15s;
   position: relative;
 }
-.icon-btn:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+.icon-btn:hover:not(:disabled) { background: var(--hover); color: var(--text); }
 .icon-btn.sm { width: 32px; height: 32px; }
 .icon-btn.sm .ic { width: 18px; height: 18px; }
 .icon-btn.xs { width: 24px; height: 24px; }
 .icon-btn.xs .ic { width: 15px; height: 15px; }
-.icon-btn.primary { background: var(--grad); color: #fff; }
-.icon-btn.primary:hover:not(:disabled) { background: var(--grad); color: #fff; filter: brightness(1.06); }
+.icon-btn.primary { background: var(--grad); color: var(--accent-ink); }
+.icon-btn.primary:hover:not(:disabled) { background: var(--grad); color: var(--accent-ink); filter: brightness(1.06); }
 .icon-btn.primary .ic { width: 19px; height: 19px; }
 .icon-btn:disabled { opacity: .4; cursor: not-allowed; }
 
@@ -323,7 +315,7 @@ img { display: block; max-width: 100%; }
   border: 2.5px solid currentColor; border-color: var(--muted); border-right-color: transparent;
   animation: spin .7s linear infinite;
 }
-.btn.primary.busy::after, .icon-btn.primary.busy::after { border-color: #fff; border-right-color: transparent; }
+.btn.primary.busy::after, .icon-btn.primary.busy::after { border-color: var(--accent-ink); border-right-color: transparent; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── 폼 ─────────────────────────────────── */
@@ -378,7 +370,7 @@ dialog {
   overflow: hidden;
 }
 dialog::backdrop {
-  background: rgba(4, 18, 36, .45);
+  background: rgba(0, 0, 0, .6);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
@@ -482,7 +474,7 @@ dialog[open]::backdrop { animation: fade .2s ease; }
   display: flex; flex-direction: column; align-items: center; gap: 6px;
   padding: 56px 24px; text-align: center; color: var(--muted);
 }
-.empty .ic { width: 40px; height: 40px; color: var(--accent); opacity: .7; margin-bottom: 6px; }
+.empty .ic { width: 40px; height: 40px; color: var(--accent); margin-bottom: 6px; }
 .empty b { color: var(--text); font-size: 17px; }
 .empty span { font-size: 14px; }
 

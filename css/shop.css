@@ -6,8 +6,8 @@
   background:
     radial-gradient(120% 160% at 100% 0%, rgba(255, 255, 255, .25), transparent 50%),
     var(--grad);
-  color: #fff;
-  box-shadow: 0 18px 40px -18px var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .35);
 }
 .wallet-label { font-size: 13px; font-weight: 700; opacity: .85; }
 .wallet-value { display: flex; align-items: baseline; gap: 8px; margin-top: 4px; }
@@ -27,14 +27,9 @@
   transition: box-shadow .15s, transform .15s;
 }
 .item:hover { box-shadow: var(--shadow); }
-.item-anon { --ic-bg: #DCEAF7; --ic: #003F73; }
-.item-shard { --ic-bg: #E0F2FF; --ic: #2F8FDB; }
-.item-flower { --ic-bg: #ffe6f1; --ic: #e0477f; }
-@media (prefers-color-scheme: dark) {
-  .item-anon { --ic-bg: #12263D; --ic: #9FC4E6; }
-  .item-shard { --ic-bg: #0F2F4D; --ic: #7FC4F5; }
-  .item-flower { --ic-bg: #3d1a2a; --ic: #ff8cb6; }
-}
+.item-anon { --ic-bg: #EDEDEA; --ic: #444442; }
+.item-shard { --ic-bg: #E2F1FD; --ic: #1F7FD0; }
+.item-flower { --ic-bg: #FDE8F0; --ic: #D23F75; }
 
 .item-ic {
   width: 56px; height: 56px; flex-shrink: 0;

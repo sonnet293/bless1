@@ -45,7 +45,6 @@ async function init() {
   }
 
   document.title = `${user.nickname} (@${user.id}) · UTOPIA`;
-  $("#headTitle").textContent = user.nickname;
   $("#pAvatar").src = avatarSrc(user);
   $("#pName").textContent = user.nickname;
   $("#pHandle").textContent = `@${user.id}`;
