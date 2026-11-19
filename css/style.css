@@ -5,22 +5,22 @@
 
 :root {
   /* Background & Surface */
-  --bg: #FFFCF0;
+  --bg: #F4F9FE;
   --surface: #FFFFFF;
-  --surface-2: #FFF9E3;
-  --surface-3: #FFF1C7;
-  --border: #E4DCC8;
+  --surface-2: #EAF3FC;
+  --surface-3: #D6E8F8;
+  --border: #C9DCEE;
 
   /* Text */
-  --text: #211F1B;
-  --text-2: #403A32;
-  --muted: #655C50;
+  --text: #0B1F33;
+  --text-2: #24405C;
+  --muted: #5A7189;
 
-  /* Accent - Vivid Yellow */
-  --accent: #FFD43B;
-  --accent-2: #FFBF00;
-  --accent-ink: #211F1B;
-  --accent-soft: #FFF9C4;
+  /* Accent - Brand Blue (#006CC4 기준) */
+  --accent: #006CC4;
+  --accent-2: #0059A2;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #E3F0FB;
 
   /* Status Colors */
   --like: #D94F63;
@@ -33,15 +33,15 @@
   /* Gradient */
   --grad: linear-gradient(
     135deg,
-    #FFE45C 0%,
-    #FFD43B 50%,
-    #FFBF00 100%
+    #2F8FDB 0%,
+    #006CC4 50%,
+    #0059A2 100%
   );
 
   /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(40, 30, 15, .08);
-  --shadow: 0 10px 30px -10px rgba(40, 30, 15, .18);
-  --shadow-lg: 0 24px 60px -18px rgba(40, 30, 15, .28);
+  --shadow-sm: 0 1px 2px rgba(0, 40, 80, .08);
+  --shadow: 0 10px 30px -10px rgba(0, 40, 80, .18);
+  --shadow-lg: 0 24px 60px -18px rgba(0, 40, 80, .28);
 
   /* Border Radius */
   --radius: 18px;
@@ -60,22 +60,22 @@
 @media (prefers-color-scheme: dark) {
   :root {
     /* Background & Surface */
-    --bg: #151410;
-    --surface: #201E19;
-    --surface-2: #2B281F;
-    --surface-3: #383326;
-    --border: #4A4437;
+    --bg: #0A1420;
+    --surface: #101D2B;
+    --surface-2: #172838;
+    --surface-3: #20354A;
+    --border: #2C4560;
 
     /* Text */
-    --text: #FFFDF4;
-    --text-2: #E8E0CE;
-    --muted: #C2B8A3;
+    --text: #F2F8FF;
+    --text-2: #C9DCEE;
+    --muted: #8FA7BF;
 
-    /* Accent - Vivid Yellow */
-    --accent: #FFDA45;
-    --accent-2: #FFC400;
-    --accent-ink: #17150F;
-    --accent-soft: #40371C;
+    /* Accent - Brand Blue (어두운 배경용으로 밝게) */
+    --accent: #4DA3E8;
+    --accent-2: #2F8FDB;
+    --accent-ink: #FFFFFF;
+    --accent-soft: #0F2A45;
 
     /* Status Colors */
     --like: #FF8290;
@@ -88,9 +88,9 @@
     /* Gradient */
     --grad: linear-gradient(
       135deg,
-      #FFE66D 0%,
-      #FFDA45 50%,
-      #FFC400 100%
+      #4DA3E8 0%,
+      #1F7FD0 50%,
+      #006CC4 100%
     );
 
     /* Shadows */
@@ -173,9 +173,9 @@ img { display: block; max-width: 100%; }
   padding: 10px 14px; margin-bottom: 10px;
   font-weight: 800; font-size: 20px; letter-spacing: .08em;
 }
-.brand .ic {
-  width: 30px; height: 30px;
-  color: var(--accent);
+.brand .brand-logo {
+  display: block;
+  width: 150px; max-width: 100%; height: auto;
 }
 
 .side-nav { display: flex; flex-direction: column; gap: 4px; }
@@ -260,6 +260,8 @@ img { display: block; max-width: 100%; }
   .sidebar { width: 88px; align-items: center; }
   .sidebar .nav-label { display: none; }
   .brand, .nav-item, .me-card { justify-content: center; padding: 12px; }
+  .brand { padding: 10px 4px; }
+  .brand .brand-logo { width: 64px; }
   .nav-item { width: auto; }
 }
 
@@ -376,7 +378,7 @@ dialog {
   overflow: hidden;
 }
 dialog::backdrop {
-  background: rgba(14, 10, 30, .45);
+  background: rgba(4, 18, 36, .45);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }

@@ -131,7 +131,7 @@ function renderEntry(entry) {
 
 function monHTML(p, i) {
   const types = Array.isArray(p.type) ? p.type : p.type ? [p.type] : [];
-  const c1 = TYPE_COLORS[types[0]] || "#9b84ff";
+  const c1 = TYPE_COLORS[types[0]] || "#4DA3E8";
   const c2 = TYPE_COLORS[types[1]] || c1;
   const label = p.cardName || p.name;
   const form = p.cardName && p.cardName !== p.name ? (p.cardName.match(/\(([^)]*)\)/) || [])[1] : "";

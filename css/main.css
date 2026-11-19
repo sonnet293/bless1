@@ -183,11 +183,11 @@
   background: var(--surface-2); color: var(--accent);
 }
 .msg-ic .ic { width: 22px; height: 22px; }
-.msg.anon .msg-ic { background: #ece8ff; color: #6a4fe0; }
+.msg.anon .msg-ic { background: #DCEAF7; color: #003F73; }
 .msg.flower .msg-ic { background: #ffe6f1; color: #e0477f; }
 .msg.peace .msg-ic { background: #fff3d6; color: #c98a00; }
 @media (prefers-color-scheme: dark) {
-  .msg.anon .msg-ic { background: #2a2350; color: #b4a3ff; }
+  .msg.anon .msg-ic { background: #12263D; color: #9FC4E6; }
   .msg.flower .msg-ic { background: #3d1a2a; color: #ff8cb6; }
   .msg.peace .msg-ic { background: #3a2c0c; color: #f3c14c; }
 }

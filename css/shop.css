@@ -27,12 +27,12 @@
   transition: box-shadow .15s, transform .15s;
 }
 .item:hover { box-shadow: var(--shadow); }
-.item-anon { --ic-bg: #ece8ff; --ic: #6a4fe0; }
-.item-shard { --ic-bg: #dff4ff; --ic: #1e88c7; }
+.item-anon { --ic-bg: #DCEAF7; --ic: #003F73; }
+.item-shard { --ic-bg: #E0F2FF; --ic: #2F8FDB; }
 .item-flower { --ic-bg: #ffe6f1; --ic: #e0477f; }
 @media (prefers-color-scheme: dark) {
-  .item-anon { --ic-bg: #2a2350; --ic: #b4a3ff; }
-  .item-shard { --ic-bg: #12304a; --ic: #7fcaf5; }
+  .item-anon { --ic-bg: #12263D; --ic: #9FC4E6; }
+  .item-shard { --ic-bg: #0F2F4D; --ic: #7FC4F5; }
   .item-flower { --ic-bg: #3d1a2a; --ic: #ff8cb6; }
 }
 
