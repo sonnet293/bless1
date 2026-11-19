@@ -5,21 +5,6 @@
   overflow: hidden;
 }
 
-.login-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
-.blob {
-  position: absolute; border-radius: 50%;
-  filter: blur(70px); opacity: .55;
-  animation: float 18s ease-in-out infinite alternate;
-}
-.b1 { width: 420px; height: 420px; background: #F2574A; top: -120px; left: -100px; }
-.b2 { width: 360px; height: 360px; background: #B8271E; bottom: -120px; right: -80px; animation-delay: -6s; }
-.b3 { width: 260px; height: 260px; background: #F59A8E; top: 40%; left: 60%; opacity: .35; animation-delay: -12s; }
-.blob { opacity: .22; }
-@keyframes float {
-  50% { transform: translate(40px, 30px) scale(1.08); }
-  100% { transform: translate(-30px, 50px) scale(.95); }
-}
-
 .login-wrap { position: relative; z-index: 1; width: 100%; max-width: 400px; }
 
 .login-card {
