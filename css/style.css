@@ -101,7 +101,9 @@ html:has(dialog[open]) { overflow: hidden; }
 body {
   margin: 0;
   min-height: 100dvh;
-  background: url("../img/Background.jpg") center / cover no-repeat;
+  background:
+    radial-gradient(circle at 0% 100%, rgba(255, 90, 78, .10) 0%, transparent 55%),
+    var(--bg);
   background-attachment: fixed;
   color: var(--text);
   font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
@@ -110,6 +112,24 @@ body {
   -webkit-font-smoothing: antialiased;
   word-break: keep-all;
   overflow-wrap: anywhere;
+}
+
+/* 배경 장식: 왼쪽 아래 큰 몬스터볼 */
+body::before {
+  content: "";
+  position: fixed;
+  left: calc(min(78vw, 780px) * -0.28);
+  bottom: calc(min(78vw, 780px) * -0.28);
+  width: min(78vw, 780px);
+  aspect-ratio: 1;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(160deg, #FF5A4E 0%, #B8271E 100%);
+  opacity: .16;
+  transform: rotate(-18deg);
+  --ball: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M14.5 12a2.5 2.5 0 0 1-5 0a2.5 2.5 0 0 1 5 0m7.5 0c0 5.52-4.48 10-10 10S2 17.52 2 12S6.48 2 12 2s10 4.48 10 10m-2 0h-4c0-2.21-1.79-4-4-4s-4 1.79-4 4H4c0 4.41 3.59 8 8 8s8-3.59 8-8'/%3E%3C/svg%3E");
+  -webkit-mask: var(--ball) center / contain no-repeat;
+          mask: var(--ball) center / contain no-repeat;
 }
 
 body.is-loading .app,
